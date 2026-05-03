@@ -168,42 +168,59 @@ fn bodySpecular(normal: vec3f, power: f32) -> f32 {
   return pow(max(dot(normal, halfVector), 0.0), power);
 }
 
+fn sampleBodyGuarded(uv: vec2f, fallbackUv: vec2f) -> vec3f {
+  let mask = sampleMaskAt(uv, vec2f(0.0));
+  let fallback = sampleBodyVolume(fallbackUv);
+  let displaced = sampleBodyVolume(clamp(uv, vec2f(0.001), vec2f(0.999)));
+  return mix(fallback, displaced, smoothstep(0.12, 0.55, mask));
+}
+
+fn waterWave(uv: vec2f, t: f32) -> f32 {
+  let longWave = sin(uv.x * 34.0 + sin(uv.y * 8.0 + t * 0.9) * 2.4 - t * 2.6);
+  let crossing = sin((uv.x * -18.0 + uv.y * 29.0) + t * 2.1);
+  let small = fbm(uv * vec2f(18.0, 14.0) + vec2f(t * 0.42, -t * 0.31)) * 2.0 - 1.0;
+  return longWave * 0.5 + crossing * 0.28 + small * 0.22;
+}
+
+fn waterGradient(uv: vec2f, t: f32) -> vec2f {
+  let px = 2.0 / params.resolution;
+  let dx = waterWave(uv + vec2f(px.x, 0.0), t) - waterWave(uv - vec2f(px.x, 0.0), t);
+  let dy = waterWave(uv + vec2f(0.0, px.y), t) - waterWave(uv - vec2f(0.0, px.y), t);
+  return vec2f(dx, dy);
+}
+
 fn jellyMaterial(uv: vec2f, soft: f32) -> vec3f {
   let t = params.time;
-  let body = sampleBodyVolume(uv);
-  let baseLuma = smoothstep(0.04, 0.95, luminance(body));
-  let normal = bodyNormal(uv, soft);
-  let wobble = fbm(uv * vec2f(7.0, 5.0) + vec2f(t * 0.55, -t * 0.28));
+  let wobbleA = fbm(uv * vec2f(5.0, 4.0) + vec2f(t * 0.46, -t * 0.27)) - 0.5;
+  let wobbleB = fbm(uv * vec2f(4.0, 6.0) + vec2f(-t * 0.34, t * 0.39)) - 0.5;
+  let displacement = vec2f(wobbleA, wobbleB) * 8.0 + bodyNormal(uv, soft).xy * 2.0;
+  let body = sampleBodyGuarded(uv + (displacement / params.resolution) * soft, uv);
+  let edgeNormal = maskNormal(uv);
+  let normal = normalize(vec3f(edgeNormal.xy * 0.45 + vec2f(wobbleA, wobbleB) * 0.42, 1.0));
   let edge = soft * (1.0 - soft) * 4.0;
   let volume = smoothstep(0.18, 0.9, soft);
-  let gelBase = mix(vec3f(0.18, 0.58, 0.52), vec3f(0.82, 1.0, 0.92), baseLuma);
-  let bodyTint = body * vec3f(0.42, 0.75, 0.66);
-  let spec = bodySpecular(normal, 48.0) * 0.42 + pow(wobble, 5.0) * 0.035;
-  let subsurface = vec3f(0.1, 0.38, 0.28) * (1.0 - baseLuma) * 0.22;
-  let hidden = sampleHiddenFill(uv);
-  var material = mix(gelBase, bodyTint + gelBase * 0.75, 0.32) + subsurface;
-  material = material + vec3f(0.55, 1.0, 0.84) * (edge * 0.18 + spec * volume);
-  return mix(material, hidden, edge * 0.05);
+  let spec = bodySpecular(normal, 46.0) * 0.3;
+  let pulse = sin(t * 2.4 + uv.y * 13.0 + wobbleA * 4.0) * 0.5 + 0.5;
+  var material = body * (0.9 + volume * 0.1 + pulse * 0.025);
+  material = material + vec3f(1.0) * (edge * 0.12 + spec * volume);
+  return material;
 }
 
 fn waterMaterial(uv: vec2f, soft: f32) -> vec3f {
   let t = params.time;
-  let body = sampleBodyVolume(uv);
-  let baseLuma = smoothstep(0.03, 0.92, luminance(body));
-  let flow = fbm(uv * vec2f(8.5, 6.2) + vec2f(t * 0.38, -t * 0.26));
-  let fineFlow = fbm(uv * vec2f(22.0, 17.0) + vec2f(-t * 0.7, t * 0.45));
-  let normal = normalize(bodyNormal(uv, soft) + vec3f((flow - 0.5) * 0.32, (fineFlow - 0.5) * 0.22, 0.0));
+  let wave = waterWave(uv, t);
+  let gradient = waterGradient(uv, t);
+  let displacement = (gradient * 11.0 + maskNormal(uv).xy * 2.0) * soft;
+  let body = sampleBodyGuarded(uv + displacement / params.resolution, uv);
+  let normal = normalize(vec3f(gradient * 0.72 + maskNormal(uv).xy * 0.32, 1.0));
   let edge = soft * (1.0 - soft) * 4.0;
-  let waterCore = mix(vec3f(0.18, 0.42, 0.58), vec3f(0.72, 0.92, 1.0), baseLuma);
-  let bodyShadow = body * vec3f(0.2, 0.42, 0.55);
-  let caustic = pow(max(flow * 0.7 + fineFlow * 0.3, 0.0), 6.0) * 0.08 * soft;
-  let spec = bodySpecular(normal, 70.0) * 0.36;
-  let thickness = (1.0 - baseLuma) * 0.22 + edge * 0.16;
-  let hidden = sampleHiddenFill(uv);
-  var material = mix(waterCore, bodyShadow + waterCore * 0.72, 0.24);
-  material = material + vec3f(0.65, 0.92, 1.0) * (caustic + spec + edge * 0.22);
-  material = material - vec3f(0.04, 0.1, 0.16) * thickness;
-  return mix(material, hidden, edge * 0.04);
+  let waveBand = abs(sin(uv.x * 38.0 + sin(uv.y * 9.0 + t * 0.7) * 2.2 - t * 2.8));
+  let rippleLine = smoothstep(0.9, 0.985, waveBand) * (0.45 + 0.55 * smoothstep(-0.2, 0.8, wave));
+  let spec = bodySpecular(normal, 78.0) * 0.28;
+  var material = body * (0.86 + wave * 0.035);
+  material = material + vec3f(1.0) * (rippleLine * 0.2 * soft + spec + edge * 0.12);
+  material = material - vec3f(1.0) * (1.0 - soft) * 0.03;
+  return material;
 }
 
 fn clothMaterial(uv: vec2f, soft: f32) -> vec3f {
@@ -216,11 +233,10 @@ fn clothMaterial(uv: vec2f, soft: f32) -> vec3f {
   let weft = abs(sin(px.y * 1.28 - fold * 2.0));
   let crossThread = smoothstep(0.58, 0.96, warp) * 0.045 + smoothstep(0.58, 0.96, weft) * 0.04;
   let twill = sin((px.x + px.y) * 0.48 + fold * 1.8) * 0.035;
-  let shade = 0.68 + baseLuma * 0.42 + crossThread + twill + fold * 0.08;
-  let fabricColor = mix(vec3f(0.34, 0.38, 0.35), vec3f(0.78, 0.82, 0.76), baseLuma);
-  let fabric = mix(fabricColor, body, 0.18) * shade;
+  let shade = 0.78 + baseLuma * 0.18 + crossThread + twill + fold * 0.08;
+  let fabric = body * shade;
   let edge = soft * (1.0 - soft) * 4.0;
-  return fabric + vec3f(0.9, 0.95, 0.88) * edge * 0.08;
+  return fabric + vec3f(1.0) * edge * 0.06;
 }
 
 @fragment

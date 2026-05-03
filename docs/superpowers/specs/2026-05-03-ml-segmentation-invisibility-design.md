@@ -25,7 +25,7 @@ The final visual equation is:
 - The effect must work immediately when the user starts in frame.
 - Standing still should not make the person reappear.
 - Debug views are Final, Matte, and Inpaint.
-- Jelly, Water, and Cloth are mutually exclusive body-material modes. They are applied only inside the person mask, using the person cutout as the visible body volume and the invisible fill only as a background guard; edge highlight remains optional and defaults to zero.
+- Jelly, Water, and Cloth are mutually exclusive body-material modes. They are applied only inside the person mask, keep the selected person cutout as the visible source, and add physical surface behavior without a flat color overlay; the invisible fill is only a background guard, and edge highlight remains optional and defaults to zero.
 - Mask target is split into hair, body skin, face skin, clothes, and accessories. Default excludes accessories and keeps mask coverage moderate to avoid swallowing adjacent chairs or props.
 
 ## Non-Goals
