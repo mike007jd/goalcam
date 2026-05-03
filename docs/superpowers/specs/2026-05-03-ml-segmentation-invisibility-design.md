@@ -10,10 +10,11 @@ Each frame uses this flow:
 
 1. Draw the current camera or demo frame.
 2. Run MediaPipe person segmentation.
-3. Refine the mask with coverage, feathering, and temporal stability controls.
-4. Build a push-pull pyramid from the original frame, with mask pixels set to zero fill weight.
-5. Build a local directional fill around each masked pixel, using push-pull as fallback.
-6. Composite the original frame with the inpaint fill using the feathered mask.
+3. Build a selected person-class mask from MediaPipe categories: hair, body skin, face skin, clothes, and optional accessories.
+4. Refine the mask with coverage, feathering, and temporal stability controls.
+5. Build a push-pull pyramid from the original frame, with mask pixels set to zero fill weight.
+6. Build a local directional fill around each masked pixel, using push-pull as fallback.
+7. Composite the original frame with the inpaint fill using the feathered mask.
 
 The final visual equation is:
 
@@ -25,7 +26,7 @@ The final visual equation is:
 - Standing still should not make the person reappear.
 - Debug views are Final, Matte, and Inpaint.
 - Jelly, Water, and Cloth are mutually exclusive body-material modes. They are applied only inside the person mask over the invisible fill; edge highlight remains optional and defaults to zero.
-- Mask coverage expands the person region enough to cover hair and loose garments.
+- Mask target is split into hair, body skin, face skin, clothes, and accessories. Default excludes accessories and keeps mask coverage moderate to avoid swallowing adjacent chairs or props.
 
 ## Non-Goals
 

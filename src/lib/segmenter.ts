@@ -3,6 +3,7 @@ import {
   ImageSegmenter,
   type ImageSegmenterResult,
 } from '@mediapipe/tasks-vision'
+import { MASK_PART_OPTIONS, type MaskPart } from './types'
 
 const WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
 const MODEL_URL =
@@ -10,6 +11,8 @@ const MODEL_URL =
 
 export const MASK_WIDTH = 256
 export const MASK_HEIGHT = 256
+
+const DEFAULT_SELECTED_CATEGORIES = new Set([1, 2, 3, 4])
 
 export class Segmenter {
   private segmenter: ImageSegmenter | null = null
@@ -36,7 +39,11 @@ export class Segmenter {
     this.maskImageData = ctx.createImageData(MASK_WIDTH, MASK_HEIGHT)
   }
 
-  segment(source: HTMLCanvasElement | HTMLVideoElement, timestamp: number): OffscreenCanvas | null {
+  segment(
+    source: HTMLCanvasElement | HTMLVideoElement,
+    timestamp: number,
+    maskParts?: readonly MaskPart[],
+  ): OffscreenCanvas | null {
     const segmenter = this.segmenter
     const canvas = this.maskCanvas
     const ctx = this.maskCtx
@@ -58,26 +65,28 @@ export class Segmenter {
     const categoryData = categoryMask?.getAsUint8Array()
     const sourceWidth = masks?.[0]?.width ?? categoryMask?.width ?? MASK_WIDTH
     const sourceHeight = masks?.[0]?.height ?? categoryMask?.height ?? MASK_HEIGHT
+    const selectedCategories = selectedCategorySet(maskParts)
     const out = imageData.data
     for (let y = 0, j = 0; y < MASK_HEIGHT; y += 1) {
       const sy = Math.min(sourceHeight - 1, Math.floor((y * sourceHeight) / MASK_HEIGHT))
       for (let x = 0; x < MASK_WIDTH; x += 1, j += 4) {
         const sx = Math.min(sourceWidth - 1, Math.floor((x * sourceWidth) / MASK_WIDTH))
         const sourceIndex = sy * sourceWidth + sx
+        const category = categoryData?.[sourceIndex] ?? 0
         let foreground = 0
-        if (confidenceData && confidenceData.length > 1) {
-          const personLayerEnd = Math.min(confidenceData.length, 5)
-          for (let layer = 1; layer < personLayerEnd; layer += 1) {
-            foreground = Math.max(foreground, confidenceData[layer][sourceIndex])
+
+        if (categoryData) {
+          if (selectedCategories.has(category)) {
+            foreground = confidenceData?.[category]?.[sourceIndex] ?? 0.96
+          }
+        } else if (confidenceData && confidenceData.length > 1) {
+          for (const categoryId of selectedCategories) {
+            foreground = Math.max(foreground, confidenceData[categoryId]?.[sourceIndex] ?? 0)
           }
         } else if (confidenceData?.[0]) {
           foreground = 1 - confidenceData[0][sourceIndex]
         }
 
-        const category = categoryData?.[sourceIndex] ?? 0
-        if (category > 0 && category < 5) {
-          foreground = Math.max(foreground, 0.96)
-        }
         const v = Math.max(0, Math.min(255, Math.round(foreground * 255)))
         out[j] = v
         out[j + 1] = v
@@ -97,4 +106,14 @@ export class Segmenter {
     this.maskCtx = null
     this.maskImageData = null
   }
+}
+
+function selectedCategorySet(maskParts?: readonly MaskPart[]): Set<number> {
+  if (!maskParts) return DEFAULT_SELECTED_CATEGORIES
+  const selected = new Set<number>()
+  for (const part of maskParts) {
+    const option = MASK_PART_OPTIONS.find((candidate) => candidate.value === part)
+    if (option) selected.add(option.category)
+  }
+  return selected
 }

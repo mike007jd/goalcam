@@ -6,10 +6,12 @@ import { drawDemoFrame } from './lib/demoSource'
 import { MASK_HEIGHT, MASK_WIDTH, Segmenter } from './lib/segmenter'
 import {
   DEFAULT_SETTINGS,
+  MASK_PART_OPTIONS,
   RENDER_HEIGHT,
   RENDER_WIDTH,
   type EngineStats,
   type FxSettings,
+  type MaskPart,
   type RunMode,
 } from './lib/types'
 import { WebGpuFxRenderer } from './lib/webgpuRenderer'
@@ -92,7 +94,7 @@ function App() {
       if (ctx && video?.readyState && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         ctx.drawImage(video, 0, 0, RENDER_WIDTH, RENDER_HEIGHT)
       }
-      maskCanvas = segmenterRef.current?.segment(frameCanvas, time) ?? null
+      maskCanvas = segmenterRef.current?.segment(frameCanvas, time, settingsRef.current.maskParts) ?? null
     } else {
       drawDemoFrame(frameCanvas, time)
       maskCanvas = drawDemoMask(getDemoMaskCanvas(), time)
@@ -203,6 +205,15 @@ function App() {
     setSettings((current) => ({ ...current, [key]: value }))
   }, [])
 
+  const toggleMaskPart = useCallback((part: MaskPart) => {
+    setSettings((current) => {
+      const maskParts = current.maskParts.includes(part)
+        ? current.maskParts.filter((currentPart) => currentPart !== part)
+        : [...current.maskParts, part]
+      return { ...current, maskParts }
+    })
+  }, [])
+
   const statusTone = rendererStatus.state === 'ready' ? 'good' : rendererStatus.state
   const canUseCamera = rendererStatus.state === 'ready'
   const coreCopy = useMemo(() => 'ML person segmentation with local shader fill.', [])
@@ -300,6 +311,21 @@ function App() {
             format={percent}
             onChange={(value) => updateSetting('maskStability', value)}
           />
+          <div className="mask-parts">
+            <span>Mask target</span>
+            <div className="check-grid">
+              {MASK_PART_OPTIONS.map((option) => (
+                <label key={option.value} className="check-option">
+                  <input
+                    type="checkbox"
+                    checked={settings.maskParts.includes(option.value)}
+                    onChange={() => toggleMaskPart(option.value)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="panel-section">

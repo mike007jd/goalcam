@@ -94,7 +94,7 @@
 
     <script type="module">
       import { Segmenter } from '/src/lib/segmenter.ts'
-      import { DEFAULT_SETTINGS, RENDER_HEIGHT, RENDER_WIDTH } from '/src/lib/types.ts'
+      import { DEFAULT_SETTINGS, MASK_PART_OPTIONS, RENDER_HEIGHT, RENDER_WIDTH } from '/src/lib/types.ts'
       import { WebGpuFxRenderer } from '/src/lib/webgpuRenderer.ts'
 
       const samples = [
@@ -122,6 +122,12 @@
       const selectedId = params.get('sample') || samples[0].id
       const debugView = params.get('view') || 'final'
       const bodyFxMode = params.get('fx') || 'none'
+      const allowedMaskParts = new Set(MASK_PART_OPTIONS.map((part) => part.value))
+      const maskParts =
+        params
+          .get('parts')
+          ?.split(',')
+          .filter((part) => allowedMaskParts.has(part)) || DEFAULT_SETTINGS.maskParts
       const selected = samples.find((sample) => sample.id === selectedId) || samples[0]
       const status = document.querySelector('#status')
       const caption = document.querySelector('#caption')
@@ -136,24 +142,28 @@
         ...DEFAULT_SETTINGS,
         opacity: 1,
         bodyFxMode,
+        maskParts,
         edgeGain: 0,
         debugView,
       }
 
-      caption.textContent = `${selected.label} / ${debugView} / ${bodyFxMode}`
+      caption.textContent = `${selected.label} / ${debugView} / ${bodyFxMode} / ${maskParts.join('+') || 'none'}`
       nav.innerHTML = samples
         .map(
           (sample) =>
-            `<a class="${sample.id === selected.id ? 'active' : ''}" href="?sample=${sample.id}&view=${debugView}&fx=${bodyFxMode}">${sample.label}</a>`,
+            `<a class="${sample.id === selected.id ? 'active' : ''}" href="?sample=${sample.id}&view=${debugView}&fx=${bodyFxMode}&parts=${maskParts.join(',')}">${sample.label}</a>`,
         )
         .join('') +
-        ` <a class="${debugView === 'final' ? 'active' : ''}" href="?sample=${selected.id}&view=final&fx=${bodyFxMode}">Final</a>` +
-        ` <a class="${debugView === 'matte' ? 'active' : ''}" href="?sample=${selected.id}&view=matte&fx=${bodyFxMode}">Matte</a>` +
-        ` <a class="${debugView === 'inpaint' ? 'active' : ''}" href="?sample=${selected.id}&view=inpaint&fx=${bodyFxMode}">Inpaint</a>` +
-        ` <a class="${bodyFxMode === 'none' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=none">Invisible</a>` +
-        ` <a class="${bodyFxMode === 'jelly' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=jelly">Jelly</a>` +
-        ` <a class="${bodyFxMode === 'water' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=water">Water</a>` +
-        ` <a class="${bodyFxMode === 'cloth' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=cloth">Cloth</a>`
+        ` <a class="${debugView === 'final' ? 'active' : ''}" href="?sample=${selected.id}&view=final&fx=${bodyFxMode}&parts=${maskParts.join(',')}">Final</a>` +
+        ` <a class="${debugView === 'matte' ? 'active' : ''}" href="?sample=${selected.id}&view=matte&fx=${bodyFxMode}&parts=${maskParts.join(',')}">Matte</a>` +
+        ` <a class="${debugView === 'inpaint' ? 'active' : ''}" href="?sample=${selected.id}&view=inpaint&fx=${bodyFxMode}&parts=${maskParts.join(',')}">Inpaint</a>` +
+        ` <a class="${bodyFxMode === 'none' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=none&parts=${maskParts.join(',')}">Invisible</a>` +
+        ` <a class="${bodyFxMode === 'jelly' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=jelly&parts=${maskParts.join(',')}">Jelly</a>` +
+        ` <a class="${bodyFxMode === 'water' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=water&parts=${maskParts.join(',')}">Water</a>` +
+        ` <a class="${bodyFxMode === 'cloth' ? 'active' : ''}" href="?sample=${selected.id}&view=${debugView}&fx=cloth&parts=${maskParts.join(',')}">Cloth</a>` +
+        ` <a href="?sample=${selected.id}&view=${debugView}&fx=${bodyFxMode}&parts=hair,bodySkin,faceSkin,clothes">Person core</a>` +
+        ` <a href="?sample=${selected.id}&view=${debugView}&fx=${bodyFxMode}&parts=hair,bodySkin,faceSkin,clothes,accessories">With accessories</a>` +
+        ` <a href="?sample=${selected.id}&view=${debugView}&fx=${bodyFxMode}&parts=clothes">Clothes only</a>`
 
       image.onload = async () => {
         try {
@@ -168,7 +178,7 @@
 
       function render(time) {
         drawQaFrame()
-        const mask = segmenter.segment(source, time)
+        const mask = segmenter.segment(source, time, settings.maskParts)
         renderer.render(source, mask, settings, time)
         requestAnimationFrame(render)
       }
