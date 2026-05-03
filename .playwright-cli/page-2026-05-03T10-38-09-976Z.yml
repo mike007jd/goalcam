@@ -1,0 +1,145 @@
+- main [ref=e3]:
+  - region "InvisibleCam live compositor" [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "InvisibleCam" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Full-body matte drives invisibility and stacked material shaders.
+      - generic [ref=e9]:
+        - button "Demo" [ref=e10] [cursor=pointer]:
+          - img [ref=e11]
+          - text: Demo
+        - button "Camera" [ref=e14] [cursor=pointer]:
+          - img [ref=e15]
+          - text: Camera
+        - button "Stop" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+          - text: Stop
+    - generic [ref=e22]:
+      - generic "WebGPU FX output" [ref=e23]
+      - generic "Paint invisibility mask"
+    - generic "engine status" [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: Renderer
+        - strong [ref=e31]: apple
+      - generic [ref=e32]:
+        - generic [ref=e33]: Input
+        - strong [ref=e34]: demo
+      - generic [ref=e35]:
+        - generic [ref=e36]: BiRefNet
+        - strong [ref=e37]: BiRefNet lite
+      - generic [ref=e38]:
+        - generic [ref=e39]: FPS
+        - strong [ref=e40]: "114"
+      - generic [ref=e41]:
+        - generic [ref=e42]: Matte
+        - strong [ref=e43]: 6.0 / 0ms
+  - complementary "FX controls" [ref=e44]:
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - img [ref=e47]
+        - generic [ref=e51]: Matte Source
+      - generic [ref=e52]:
+        - generic [ref=e53]: Model
+        - combobox "Model" [disabled] [ref=e54]:
+          - option "BiRefNet 512 quality"
+          - option "BiRefNet lite" [selected]
+      - paragraph [ref=e55]: 512 fp16 browser preset for local iteration.
+      - button "Loading 100%" [disabled] [ref=e156]:
+        - img [ref=e157]
+        - text: Loading 100%
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - img [ref=e61]
+        - generic [ref=e62]: Compositor
+      - generic [ref=e63]:
+        - button "Full body" [ref=e64] [cursor=pointer]
+        - button "Paint" [ref=e65] [cursor=pointer]
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - text: Invisibility
+          - strong [ref=e68]: 96%
+        - slider "Invisibility 96%" [ref=e69]: "0.96"
+      - generic [ref=e70]:
+        - generic [ref=e71]:
+          - text: Matte low
+          - strong [ref=e72]: "0.36"
+        - slider "Matte low 0.36" [ref=e73]: "0.36"
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - text: Matte high
+          - strong [ref=e76]: "0.66"
+        - slider "Matte high 0.66" [ref=e77]: "0.66"
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - text: Plate learning
+          - strong [ref=e80]: "0.06"
+        - slider "Plate learning 0.06" [ref=e81]: "0.055"
+      - button "Reset plate" [ref=e82] [cursor=pointer]:
+        - img [ref=e83]
+        - text: Reset plate
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - img [ref=e90]
+        - generic [ref=e93]: Stacked FX
+      - generic [ref=e94]:
+        - generic [ref=e95]:
+          - text: Jelly
+          - strong [ref=e96]: 38%
+        - slider "Jelly 38%" [ref=e97]: "0.38"
+      - generic [ref=e98]:
+        - generic [ref=e99]:
+          - text: Water
+          - strong [ref=e100]: 30%
+        - slider "Water 30%" [ref=e101]: "0.3"
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - text: Cloth
+          - strong [ref=e104]: 22%
+        - slider "Cloth 22%" [ref=e105]: "0.22"
+      - generic [ref=e106]:
+        - generic [ref=e107]:
+          - text: Refraction
+          - strong [ref=e108]: "0.72"
+        - slider "Refraction 0.72" [ref=e109]: "0.72"
+    - generic [ref=e110]:
+      - generic [ref=e111]:
+        - img [ref=e112]
+        - generic [ref=e116]: Paint Mask
+      - generic [ref=e117]:
+        - button "Paint mask" [ref=e118] [cursor=pointer]:
+          - img [ref=e119]
+        - button "Erase mask" [ref=e123] [cursor=pointer]:
+          - img [ref=e124]
+        - button "Clear mask" [ref=e127] [cursor=pointer]:
+          - img [ref=e128]
+      - generic [ref=e133]:
+        - generic [ref=e134]:
+          - text: Brush
+          - strong [ref=e135]: 58px
+        - slider "Brush 58px" [ref=e136]: "58"
+      - generic [ref=e137]:
+        - generic [ref=e138]:
+          - text: Preview
+          - strong [ref=e139]: 42%
+        - slider "Preview 42%" [ref=e140]: "0.42"
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - img [ref=e143]
+        - generic [ref=e144]: Diagnostics
+      - generic [ref=e145]:
+        - generic [ref=e146]: View
+        - combobox "View" [ref=e147]:
+          - option "Final" [selected]
+          - option "Matte"
+          - option "Plate"
+          - option "Paint"
+      - generic [ref=e148]:
+        - generic [ref=e149]:
+          - text: Matte cadence
+          - strong [ref=e150]: 180ms
+        - slider "Matte cadence 180ms" [ref=e151]: "180"
+      - generic [ref=e152]:
+        - generic [ref=e153]:
+          - text: Edge
+          - strong [ref=e154]: 20%
+        - slider "Edge 20%" [ref=e155]: "0.2"
