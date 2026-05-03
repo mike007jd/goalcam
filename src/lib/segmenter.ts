@@ -26,7 +26,7 @@ export class Segmenter {
         delegate: 'GPU',
       },
       runningMode: 'VIDEO',
-      outputCategoryMask: false,
+      outputCategoryMask: true,
       outputConfidenceMasks: true,
     })
     this.maskCanvas = new OffscreenCanvas(MASK_WIDTH, MASK_HEIGHT)
@@ -48,20 +48,42 @@ export class Segmenter {
 
     const result: ImageSegmenterResult = segmenter.segmentForVideo(source, ts)
     const masks = result.confidenceMasks
-    if (!masks || masks.length === 0) {
+    const categoryMask = result.categoryMask
+    if ((!masks || masks.length === 0) && !categoryMask) {
       result.close?.()
       return canvas
     }
 
-    const bg = masks[0]
-    const data = bg.getAsFloat32Array()
+    const confidenceData = masks?.map((mask) => mask.getAsFloat32Array())
+    const categoryData = categoryMask?.getAsUint8Array()
+    const sourceWidth = masks?.[0]?.width ?? categoryMask?.width ?? MASK_WIDTH
+    const sourceHeight = masks?.[0]?.height ?? categoryMask?.height ?? MASK_HEIGHT
     const out = imageData.data
-    for (let i = 0, j = 0; i < data.length; i += 1, j += 4) {
-      const v = Math.max(0, Math.min(255, Math.round((1 - data[i]) * 255)))
-      out[j] = v
-      out[j + 1] = v
-      out[j + 2] = v
-      out[j + 3] = 255
+    for (let y = 0, j = 0; y < MASK_HEIGHT; y += 1) {
+      const sy = Math.min(sourceHeight - 1, Math.floor((y * sourceHeight) / MASK_HEIGHT))
+      for (let x = 0; x < MASK_WIDTH; x += 1, j += 4) {
+        const sx = Math.min(sourceWidth - 1, Math.floor((x * sourceWidth) / MASK_WIDTH))
+        const sourceIndex = sy * sourceWidth + sx
+        let foreground = 0
+        if (confidenceData && confidenceData.length > 1) {
+          const personLayerEnd = Math.min(confidenceData.length, 5)
+          for (let layer = 1; layer < personLayerEnd; layer += 1) {
+            foreground = Math.max(foreground, confidenceData[layer][sourceIndex])
+          }
+        } else if (confidenceData?.[0]) {
+          foreground = 1 - confidenceData[0][sourceIndex]
+        }
+
+        const category = categoryData?.[sourceIndex] ?? 0
+        if (category > 0 && category < 5) {
+          foreground = Math.max(foreground, 0.96)
+        }
+        const v = Math.max(0, Math.min(255, Math.round(foreground * 255)))
+        out[j] = v
+        out[j + 1] = v
+        out[j + 2] = v
+        out[j + 3] = 255
+      }
     }
     ctx.putImageData(imageData, 0, 0)
     result.close?.()

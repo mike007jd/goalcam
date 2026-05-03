@@ -1,9 +1,9 @@
-import { Camera, LoaderCircle, Pause, RefreshCw, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Camera, LoaderCircle, Pause, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { requestMacBookCamera, stopMediaStream } from './lib/camera'
 import { drawDemoFrame } from './lib/demoSource'
-import { Segmenter } from './lib/segmenter'
+import { MASK_HEIGHT, MASK_WIDTH, Segmenter } from './lib/segmenter'
 import {
   DEFAULT_SETTINGS,
   RENDER_HEIGHT,
@@ -28,6 +28,7 @@ const INITIAL_STATS: EngineStats = {
 function App() {
   const outputCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const demoMaskCanvasRef = useRef<OffscreenCanvas | HTMLCanvasElement | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const rendererRef = useRef<WebGpuFxRenderer | null>(null)
   const segmenterRef = useRef<Segmenter | null>(null)
@@ -57,6 +58,16 @@ function App() {
     runModeRef.current = runMode
   }, [runMode])
 
+  const getDemoMaskCanvas = useCallback((): OffscreenCanvas | HTMLCanvasElement => {
+    if (!demoMaskCanvasRef.current) {
+      demoMaskCanvasRef.current =
+        typeof OffscreenCanvas === 'undefined'
+          ? Object.assign(document.createElement('canvas'), { width: MASK_WIDTH, height: MASK_HEIGHT })
+          : new OffscreenCanvas(MASK_WIDTH, MASK_HEIGHT)
+    }
+    return demoMaskCanvasRef.current
+  }, [])
+
   const renderFrame = useCallback((time: number) => {
     const renderer = rendererRef.current
     const frameCanvas = frameCanvasRef.current
@@ -66,20 +77,24 @@ function App() {
       return
     }
 
-    if (runModeRef.current === 'camera') {
+    const mode = runModeRef.current
+    let maskCanvas: OffscreenCanvas | HTMLCanvasElement | null
+
+    if (mode === 'camera') {
       const ctx = frameCanvas.getContext('2d', { willReadFrequently: true })
       if (ctx && video?.readyState && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
         ctx.drawImage(video, 0, 0, RENDER_WIDTH, RENDER_HEIGHT)
       }
+      maskCanvas = segmenterRef.current?.segment(frameCanvas, time) ?? null
     } else {
       drawDemoFrame(frameCanvas, time)
+      maskCanvas = drawDemoMask(getDemoMaskCanvas(), time)
     }
 
-    const maskCanvas = segmenterRef.current?.segment(frameCanvas, time) ?? null
     renderer.render(frameCanvas, maskCanvas, settingsRef.current, time)
     updateStatsRef.current(renderer, time)
     loopRef.current = requestAnimationFrame(renderFrameRef.current)
-  }, [])
+  }, [getDemoMaskCanvas])
 
   useEffect(() => {
     updateStatsRef.current = updateStats
@@ -103,8 +118,7 @@ function App() {
     rendererRef.current = renderer
     segmenterRef.current = segmenter
 
-    renderer
-      .init(outputCanvas)
+    Promise.all([renderer.init(outputCanvas), segmenter.init()])
       .then(() => {
         if (cancelled) return
         setRendererStatus({ state: 'ready', message: renderer.label })
@@ -116,14 +130,9 @@ function App() {
         }
       })
       .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'WebGPU failed to start.'
+        const message = error instanceof Error ? error.message : 'Engine failed to start.'
         setRendererStatus({ state: 'error', message })
       })
-
-    segmenter.init().catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Segmenter failed to load.'
-      setRendererStatus((current) => ({ ...current, message: `Segmenter: ${message}` }))
-    })
 
     return () => {
       cancelled = true
@@ -143,7 +152,6 @@ function App() {
     stopMediaStream(streamRef.current)
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
-    resetTrackingState()
     setRunMode('demo')
     runModeRef.current = 'demo'
     if (loopRef.current === null) {
@@ -161,7 +169,6 @@ function App() {
         video.srcObject = stream
         await video.play()
       }
-      resetTrackingState()
       setRunMode('camera')
       runModeRef.current = 'camera'
       if (loopRef.current === null) {
@@ -181,13 +188,8 @@ function App() {
     stopMediaStream(streamRef.current)
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
-    resetTrackingState()
     setRunMode('idle')
     runModeRef.current = 'idle'
-  }, [])
-
-  const resetPlate = useCallback(() => {
-    rendererRef.current?.resetPlate()
   }, [])
 
   const updateSetting = useCallback(<K extends keyof FxSettings>(key: K, value: FxSettings[K]) => {
@@ -196,10 +198,7 @@ function App() {
 
   const statusTone = rendererStatus.state === 'ready' ? 'good' : rendererStatus.state
   const canUseCamera = rendererStatus.state === 'ready'
-  const coreCopy = useMemo(
-    () => 'ML person segmentation with temporal background reconstruction and shader inpainting.',
-    [],
-  )
+  const coreCopy = useMemo(() => 'ML person segmentation with local shader fill.', [])
 
   return (
     <main className="app-shell">
@@ -243,7 +242,7 @@ function App() {
         <div className="meter-row" aria-label="engine status">
           <StatusPill label="Renderer" value={rendererStatus.message} tone={statusTone} />
           <StatusPill label="Input" value={runMode} tone={runMode === 'idle' ? 'idle' : 'good'} />
-          <StatusPill label="Pipeline" value="ML + WebGPU" tone="good" />
+          <StatusPill label="Pipeline" value="Directional fill" tone="good" />
           <StatusPill label="FPS" value={stats.fps.toFixed(0)} tone="idle" />
           <StatusPill label="Mask" value="MediaPipe" tone="good" />
         </div>
@@ -268,7 +267,7 @@ function App() {
             onChange={(value) => updateSetting('opacity', value)}
           />
           <SliderControl
-            label="Mask dilation"
+            label="Mask coverage"
             value={settings.followLock}
             min={0}
             max={1}
@@ -294,28 +293,6 @@ function App() {
             format={percent}
             onChange={(value) => updateSetting('maskStability', value)}
           />
-          <SliderControl
-            label="Inpaint fallback"
-            value={settings.inpaintFallback}
-            min={0}
-            max={1}
-            step={0.01}
-            format={percent}
-            onChange={(value) => updateSetting('inpaintFallback', value)}
-          />
-          <SliderControl
-            label="Plate learning"
-            value={settings.plateLearning}
-            min={0.005}
-            max={0.18}
-            step={0.005}
-            format={decimal}
-            onChange={(value) => updateSetting('plateLearning', value)}
-          />
-          <button type="button" onClick={resetPlate} className="secondary-action">
-            <RefreshCw size={16} />
-            Reset plate
-          </button>
         </section>
 
         <section className="panel-section">
@@ -342,15 +319,6 @@ function App() {
             onChange={(value) => updateSetting('water', value)}
           />
           <SliderControl
-            label="Cloth"
-            value={settings.cloth}
-            min={0}
-            max={1}
-            step={0.01}
-            format={percent}
-            onChange={(value) => updateSetting('cloth', value)}
-          />
-          <SliderControl
             label="Refraction"
             value={settings.refraction}
             min={0}
@@ -374,7 +342,6 @@ function App() {
             >
               <option value="final">Final</option>
               <option value="matte">Matte</option>
-              <option value="plate">Plate</option>
               <option value="inpaint">Inpaint</option>
             </select>
           </label>
@@ -408,10 +375,51 @@ function App() {
       renderer: renderer.label,
     })
   }
+}
 
-  function resetTrackingState(): void {
-    rendererRef.current?.resetPlate()
-  }
+function drawDemoMask(canvas: OffscreenCanvas | HTMLCanvasElement, time: number): OffscreenCanvas | HTMLCanvasElement {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return canvas
+
+  const t = time * 0.001
+  const cx = MASK_WIDTH * 0.5 + Math.sin(t * 1.4) * ((22 / RENDER_WIDTH) * MASK_WIDTH)
+  const ground = MASK_HEIGHT * 0.86
+  const x = (value: number) => (value / RENDER_WIDTH) * MASK_WIDTH
+  const y = (value: number) => (value / RENDER_HEIGHT) * MASK_HEIGHT
+
+  ctx.fillStyle = '#000'
+  ctx.fillRect(0, 0, MASK_WIDTH, MASK_HEIGHT)
+  ctx.filter = 'blur(2px)'
+  ctx.fillStyle = '#fff'
+  ctx.beginPath()
+  ctx.ellipse(cx, y(RENDER_HEIGHT * 0.24), x(53), y(61), 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.roundRect(cx - x(77), y(RENDER_HEIGHT * 0.34), x(154), y(254), x(66))
+  ctx.fill()
+  ctx.lineWidth = y(42)
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = '#fff'
+  ctx.beginPath()
+  ctx.moveTo(cx - x(88), y(RENDER_HEIGHT * 0.42))
+  ctx.quadraticCurveTo(cx - x(156), y(RENDER_HEIGHT * 0.54), cx - x(130), y(RENDER_HEIGHT * 0.74))
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(cx + x(88), y(RENDER_HEIGHT * 0.42))
+  ctx.quadraticCurveTo(cx + x(148), y(RENDER_HEIGHT * 0.56), cx + x(114), y(RENDER_HEIGHT * 0.74))
+  ctx.stroke()
+  ctx.lineWidth = y(48)
+  ctx.beginPath()
+  ctx.moveTo(cx - x(40), y(RENDER_HEIGHT * 0.72))
+  ctx.lineTo(cx - x(64), ground)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(cx + x(40), y(RENDER_HEIGHT * 0.72))
+  ctx.lineTo(cx + x(68), ground)
+  ctx.stroke()
+  ctx.filter = 'none'
+
+  return canvas
 }
 
 function StatusPill({

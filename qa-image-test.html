@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InvisibleCam Image QA</title>
+    <style>
+      :root {
+        color: #eef7f5;
+        background: #071011;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+      }
+
+      main {
+        width: min(1100px, calc(100vw - 32px));
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        margin-bottom: 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      p {
+        margin: 4px 0 0;
+        color: #9db0ad;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(208, 237, 232, 0.2);
+        background: #020506;
+      }
+
+      nav {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      a {
+        color: #95f2ff;
+        text-decoration: none;
+        border: 1px solid rgba(149, 242, 255, 0.35);
+        padding: 7px 10px;
+        border-radius: 7px;
+      }
+
+      a.active {
+        color: #061113;
+        background: #95f2ff;
+      }
+
+      #status {
+        margin-top: 10px;
+        color: #9db0ad;
+        font-size: 13px;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Image QA</h1>
+          <p id="caption">Loading</p>
+        </div>
+        <nav id="nav" aria-label="samples"></nav>
+      </header>
+      <canvas id="output" width="960" height="540"></canvas>
+      <canvas id="source" class="hidden" width="960" height="540"></canvas>
+      <div id="status">Booting WebGPU and segmentation</div>
+    </main>
+
+    <script type="module">
+      import { Segmenter } from '/src/lib/segmenter.ts'
+      import { DEFAULT_SETTINGS, RENDER_HEIGHT, RENDER_WIDTH } from '/src/lib/types.ts'
+      import { WebGpuFxRenderer } from '/src/lib/webgpuRenderer.ts'
+
+      const samples = [
+        {
+          id: 'fullbody',
+          label: 'Full body',
+          file: '/qa/fullbody-standing.jpg',
+          fit: 'contain',
+        },
+        {
+          id: 'halfbody',
+          label: 'Half body',
+          file: '/qa/halfbody-portrait.jpg',
+          fit: 'contain',
+        },
+        {
+          id: 'seated',
+          label: 'Seated body',
+          file: '/qa/seated-person.jpg',
+          fit: 'contain',
+        },
+      ]
+
+      const params = new URLSearchParams(location.search)
+      const selectedId = params.get('sample') || samples[0].id
+      const debugView = params.get('view') || 'final'
+      const selected = samples.find((sample) => sample.id === selectedId) || samples[0]
+      const status = document.querySelector('#status')
+      const caption = document.querySelector('#caption')
+      const nav = document.querySelector('#nav')
+      const output = document.querySelector('#output')
+      const source = document.querySelector('#source')
+      const sourceCtx = source.getContext('2d', { willReadFrequently: true })
+      const renderer = new WebGpuFxRenderer()
+      const segmenter = new Segmenter()
+      const image = new Image()
+      const settings = {
+        ...DEFAULT_SETTINGS,
+        opacity: 1,
+        jelly: 0,
+        water: 0,
+        refraction: 0,
+        edgeGain: 0,
+        debugView,
+      }
+
+      caption.textContent = `${selected.label} / ${debugView}`
+      nav.innerHTML = samples
+        .map(
+          (sample) =>
+            `<a class="${sample.id === selected.id ? 'active' : ''}" href="?sample=${sample.id}&view=${debugView}">${sample.label}</a>`,
+        )
+        .join('') +
+        ` <a class="${debugView === 'final' ? 'active' : ''}" href="?sample=${selected.id}&view=final">Final</a>` +
+        ` <a class="${debugView === 'matte' ? 'active' : ''}" href="?sample=${selected.id}&view=matte">Matte</a>` +
+        ` <a class="${debugView === 'inpaint' ? 'active' : ''}" href="?sample=${selected.id}&view=inpaint">Inpaint</a>`
+
+      image.onload = async () => {
+        try {
+          await Promise.all([renderer.init(output), segmenter.init()])
+          status.textContent = `Running ${selected.label}`
+          requestAnimationFrame(render)
+        } catch (error) {
+          status.textContent = error instanceof Error ? error.message : 'QA harness failed'
+        }
+      }
+      image.src = selected.file
+
+      function render(time) {
+        drawQaFrame()
+        const mask = segmenter.segment(source, time)
+        renderer.render(source, mask, settings, time)
+        requestAnimationFrame(render)
+      }
+
+      function drawQaFrame() {
+        if (!sourceCtx) return
+
+        sourceCtx.clearRect(0, 0, RENDER_WIDTH, RENDER_HEIGHT)
+        sourceCtx.filter = 'blur(16px)'
+        drawImage(sourceCtx, image, 'cover')
+        sourceCtx.filter = 'none'
+        sourceCtx.fillStyle = 'rgba(219, 232, 229, 0.38)'
+        sourceCtx.fillRect(0, 0, RENDER_WIDTH, RENDER_HEIGHT)
+        drawImage(sourceCtx, image, selected.fit)
+      }
+
+      function drawImage(ctx, img, fit) {
+        const imageRatio = img.naturalWidth / img.naturalHeight
+        const frameRatio = RENDER_WIDTH / RENDER_HEIGHT
+        const useCover = fit === 'cover'
+        const fillWidth = useCover ? imageRatio < frameRatio : imageRatio > frameRatio
+        const width = fillWidth ? RENDER_WIDTH : RENDER_HEIGHT * imageRatio
+        const height = fillWidth ? RENDER_WIDTH / imageRatio : RENDER_HEIGHT
+        const x = (RENDER_WIDTH - width) * 0.5
+        const y = (RENDER_HEIGHT - height) * 0.5
+        ctx.drawImage(img, x, y, width, height)
+      }
+    </script>
+  </body>
+</html>
