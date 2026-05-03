@@ -113,6 +113,27 @@ function App() {
     renderFrameRef.current = renderFrame
   }, [renderFrame])
 
+  const startCamera = useCallback(async () => {
+    try {
+      const stream = await requestMacBookCamera()
+      stopMediaStream(streamRef.current)
+      streamRef.current = stream
+      const video = videoRef.current
+      if (video) {
+        video.srcObject = stream
+        await video.play()
+      }
+      setRunMode('camera')
+      runModeRef.current = 'camera'
+      if (loopRef.current === null) {
+        loopRef.current = requestAnimationFrame(renderFrame)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Camera permission failed.'
+      setRendererStatus((current) => ({ ...current, message }))
+    }
+  }, [renderFrame])
+
   useEffect(() => {
     const outputCanvas = outputCanvasRef.current
     const frameCanvas = frameCanvasRef.current
@@ -132,11 +153,7 @@ function App() {
         if (cancelled) return
         setRendererStatus({ state: 'ready', message: renderer.label })
         setStats((current) => ({ ...current, renderer: renderer.label }))
-        setRunMode('demo')
-        runModeRef.current = 'demo'
-        if (loopRef.current === null) {
-          loopRef.current = requestAnimationFrame(renderFrame)
-        }
+        void startCamera()
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : 'Engine failed to start.'
@@ -155,37 +172,16 @@ function App() {
       segmenterRef.current = null
       renderer.dispose()
     }
-  }, [renderFrame])
+  }, [renderFrame, startCamera])
 
-  const startDemo = useCallback(() => {
+  const startTest = useCallback(() => {
     stopMediaStream(streamRef.current)
     streamRef.current = null
     if (videoRef.current) videoRef.current.srcObject = null
-    setRunMode('demo')
-    runModeRef.current = 'demo'
+    setRunMode('test')
+    runModeRef.current = 'test'
     if (loopRef.current === null) {
       loopRef.current = requestAnimationFrame(renderFrame)
-    }
-  }, [renderFrame])
-
-  const startCamera = useCallback(async () => {
-    try {
-      const stream = await requestMacBookCamera()
-      stopMediaStream(streamRef.current)
-      streamRef.current = stream
-      const video = videoRef.current
-      if (video) {
-        video.srcObject = stream
-        await video.play()
-      }
-      setRunMode('camera')
-      runModeRef.current = 'camera'
-      if (loopRef.current === null) {
-        loopRef.current = requestAnimationFrame(renderFrame)
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Camera permission failed.'
-      setRendererStatus((current) => ({ ...current, message }))
     }
   }, [renderFrame])
 
@@ -227,10 +223,6 @@ function App() {
             <p>{coreCopy}</p>
           </div>
           <div className="topbar-actions">
-            <button type="button" onClick={startDemo} className={runMode === 'demo' ? 'active' : ''}>
-              <Sparkles size={16} />
-              Demo
-            </button>
             <button
               type="button"
               onClick={() => void startCamera()}
@@ -239,6 +231,10 @@ function App() {
             >
               <Camera size={16} />
               Camera
+            </button>
+            <button type="button" onClick={startTest} className={runMode === 'test' ? 'active' : ''}>
+              <Sparkles size={16} />
+              Test
             </button>
             <button type="button" onClick={stopEngine}>
               <Pause size={16} />

@@ -1,7 +1,7 @@
 export const RENDER_WIDTH = 960
 export const RENDER_HEIGHT = 540
 
-export type RunMode = 'idle' | 'camera' | 'demo'
+export type RunMode = 'idle' | 'camera' | 'test'
 export type DebugView = 'final' | 'matte' | 'inpaint'
 export type BodyFxMode = 'none' | 'jelly' | 'water' | 'cloth'
 export type MaskPart = 'hair' | 'bodySkin' | 'faceSkin' | 'clothes' | 'accessories'

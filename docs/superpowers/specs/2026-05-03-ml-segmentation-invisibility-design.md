@@ -8,7 +8,7 @@ InvisibleCam should create a Snapchat-style invisibility effect, not a true clea
 
 Each frame uses this flow:
 
-1. Draw the current camera or demo frame.
+1. Draw the current camera or test frame.
 2. Run MediaPipe person segmentation.
 3. Build a selected person-class mask from MediaPipe categories: hair, body skin, face skin, clothes, and optional accessories.
 4. Refine the mask with coverage, feathering, and temporal stability controls.
@@ -31,5 +31,5 @@ The final visual equation is:
 ## Non-Goals
 
 - Recording and export.
-- Changing camera or demo source capture.
+- Changing camera or test source capture.
 - Reconstructing a clean hidden background.

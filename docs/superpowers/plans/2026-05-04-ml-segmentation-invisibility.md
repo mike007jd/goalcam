@@ -30,7 +30,7 @@ npm run build
 
 Then start Vite and verify in browser:
 
-1. Demo mode fills the silhouette with surrounding colors.
+1. Test mode fills the silhouette with surrounding colors.
 2. Camera mode takes effect immediately with no need to leave the frame first.
 3. Standing still remains effective.
 4. No regular horizontal striping appears.
