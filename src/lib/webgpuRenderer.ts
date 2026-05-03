@@ -4,7 +4,7 @@ import maskRefineShader from './shaders/maskRefine.wgsl?raw'
 import pushDownShader from './shaders/pushDown.wgsl?raw'
 import pushUpShader from './shaders/pushUp.wgsl?raw'
 import pyramidBaseShader from './shaders/pyramidBase.wgsl?raw'
-import { RENDER_HEIGHT, RENDER_WIDTH, type DebugView, type FxSettings } from './types'
+import { RENDER_HEIGHT, RENDER_WIDTH, type BodyFxMode, type DebugView, type FxSettings } from './types'
 
 const WORKGROUP_SIZE = 8
 const MASK_WIDTH = 256
@@ -443,9 +443,7 @@ export class WebGpuFxRenderer {
         RENDER_HEIGHT,
         time * 0.001,
         settings.opacity,
-        settings.jelly,
-        settings.water,
-        settings.refraction,
+        bodyFxModeToNumber(settings.bodyFxMode),
         settings.edgeGain,
         debugViewToNumber(settings.debugView),
         0,
@@ -463,5 +461,12 @@ export class WebGpuFxRenderer {
 function debugViewToNumber(view: DebugView): number {
   if (view === 'matte') return 1
   if (view === 'inpaint') return 2
+  return 0
+}
+
+function bodyFxModeToNumber(mode: BodyFxMode): number {
+  if (mode === 'jelly') return 1
+  if (mode === 'water') return 2
+  if (mode === 'cloth') return 3
   return 0
 }

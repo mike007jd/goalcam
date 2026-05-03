@@ -25,6 +25,13 @@ const INITIAL_STATS: EngineStats = {
   renderer: 'WebGPU',
 }
 
+const BODY_FX_OPTIONS: Array<{ label: string; value: FxSettings['bodyFxMode'] }> = [
+  { label: 'Invisible', value: 'none' },
+  { label: 'Jelly', value: 'jelly' },
+  { label: 'Water', value: 'water' },
+  { label: 'Cloth', value: 'cloth' },
+]
+
 function App() {
   const outputCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const frameCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -300,33 +307,20 @@ function App() {
             <Sparkles size={17} />
             <span>Stacked FX</span>
           </div>
-          <SliderControl
-            label="Jelly"
-            value={settings.jelly}
-            min={0}
-            max={1}
-            step={0.01}
-            format={percent}
-            onChange={(value) => updateSetting('jelly', value)}
-          />
-          <SliderControl
-            label="Water"
-            value={settings.water}
-            min={0}
-            max={1}
-            step={0.01}
-            format={percent}
-            onChange={(value) => updateSetting('water', value)}
-          />
-          <SliderControl
-            label="Refraction"
-            value={settings.refraction}
-            min={0}
-            max={1.4}
-            step={0.01}
-            format={decimal}
-            onChange={(value) => updateSetting('refraction', value)}
-          />
+          <div className="effect-list" role="radiogroup" aria-label="body effect">
+            {BODY_FX_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={settings.bodyFxMode === option.value}
+                className={`effect-option ${settings.bodyFxMode === option.value ? 'active' : ''}`}
+                onClick={() => updateSetting('bodyFxMode', option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="panel-section">
@@ -476,10 +470,6 @@ function SliderControl({
 
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`
-}
-
-function decimal(value: number): string {
-  return value.toFixed(2)
 }
 
 export default App

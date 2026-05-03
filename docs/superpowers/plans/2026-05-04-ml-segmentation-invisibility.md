@@ -16,7 +16,7 @@ Implement the corrected pure spatial fill direction for InvisibleCam:
 4. Reduce renderer bind groups from background-state plus mask combinations to mask-only combinations.
 5. Wait for both WebGPU and MediaPipe initialization before starting the render loop.
 6. Remove obsolete controls from the UI: reset, learning rate, fallback blend, and fabric distortion.
-7. Keep the controls that map to the corrected product behavior: invisibility strength, mask coverage, edge feather, mask stability, jelly, water, refraction, edge, and debug view.
+7. Keep the controls that map to the corrected product behavior: invisibility strength, mask coverage, edge feather, mask stability, mutually exclusive body FX mode, edge, and debug view.
 8. Update README and local docs so future work follows the Snapchat-style local directional fill direction.
 
 ## Verification
@@ -37,4 +37,4 @@ Then start Vite and verify in browser:
 5. Matte shows a white person mask over black background.
 6. Inpaint shows the directional fill result with push-pull fallback.
 7. Invisibility strength 0 shows the original frame; 1 shows full fill inside the mask.
-8. Distortion controls only affect the output after the user raises them.
+8. Body FX modes only affect pixels inside the person mask.

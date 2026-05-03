@@ -24,7 +24,7 @@ The final visual equation is:
 - The effect must work immediately when the user starts in frame.
 - Standing still should not make the person reappear.
 - Debug views are Final, Matte, and Inpaint.
-- Jelly, water, refraction, and edge highlight are optional accents and default to zero.
+- Jelly, Water, and Cloth are mutually exclusive body-material modes. They are applied only inside the person mask over the invisible fill; edge highlight remains optional and defaults to zero.
 - Mask coverage expands the person region enough to cover hair and loose garments.
 
 ## Non-Goals
