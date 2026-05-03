@@ -8,7 +8,7 @@ Open-source browser webcam FX engine for MacBook-class hardware. It uses a pure 
 - MediaPipe person segmentation for stable body masks
 - selectable MediaPipe selfie classes: hair, body skin, face skin, clothes, and accessories
 - left and right neighboring pixels diffused into each masked pixel, with low-weight surrounding softening and push-pull fallback
-- mutually exclusive Jelly, Water, and Cloth body-material modes over the invisible fill
+- mutually exclusive Jelly, Water, and Cloth modes driven by the selected person cutout
 - mask dilation, feathering, temporal stability, and adjustable invisibility strength
 
 ## Run
@@ -24,7 +24,7 @@ Open the Vite localhost URL in a WebGPU-capable Chromium browser. Camera capture
 
 InvisibleCam loads MediaPipe Tasks Vision in the browser and runs the rest of the effect in WebGPU. Each frame flows through person-class segmentation, mask refinement, horizontal-dominant local fill, push-pull fallback inpainting, and final compositing.
 
-This is not temporal background reconstruction. The person mask is treated as a hole; each masked pixel searches its own nearby left and right source pixels, then uses surrounding samples only as a softening layer. Push-pull blur fills areas where local samples are weak. Body-material FX are mask-local modes: the user remains hidden first, then Jelly, Water, or Cloth shading is applied only inside the selected person classes. Use the diagnostics selector to inspect Final, Matte, and Inpaint views.
+This is not temporal background reconstruction. The person mask is treated as a hole; each masked pixel searches its own nearby left and right source pixels, then uses surrounding samples only as a softening layer. Body-material FX are mask-local modes: the selected person cutout provides the visible body volume and lighting, while the hidden fill is only a background guard. Use the diagnostics selector to inspect Final, Matte, and Inpaint views.
 
 ## Third-Party Segmentation
 
